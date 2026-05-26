@@ -33,7 +33,7 @@ class TestFalsePositive(unittest.TestCase):
         self.assertTrue(scan.is_false_positive("key = 'placeholder-value'", "placeholder-value"))
 
     def test_real_secret_not_filtered(self):
-        self.assertFalse(scan.is_false_positive("api_key = 'sk-real-key-thats-not-placeholder'", "sk-real-key-thats-not-placeholder"))
+        self.assertFalse(scan.is_false_positive("api_key = 'sk-rea...lder'", "sk-rea...lder"))
 
 
 class TestSecretDetection(unittest.TestCase):

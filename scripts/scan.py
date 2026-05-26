@@ -88,6 +88,14 @@ SECRET_PATTERNS = [
     (r'xox[baprs]-[0-9a-zA-Z-]{10,}', 'high', 'slack-token',
      'Slack token exposed',
      'Use Slack app credentials via environment variables'),
+    # GitLab Personal Access Token
+    (r'glpat-[0-9a-zA-Z_-]{20,}', 'critical', 'gitlab-token',
+     'Hardcoded GitLab PAT',
+     'Use GitLab CI/CD variables or environment variable'),
+    # Azure Storage connection string
+    (r'DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[^;]+', 'critical', 'azure-storage-key',
+     'Azure Storage connection string with account key',
+     'Use Azure Managed Identity or Key Vault instead of connection strings'),
 ]
 
 def scan_secrets(content: str, filepath: str) -> List[Finding]:
@@ -133,8 +141,8 @@ def is_false_positive(line: str, matched: str) -> bool:
     # 注释中的密钥
     if line.strip().startswith('#') or line.strip().startswith('//'):
         return True
-    # 已经是环境变量引用
-    if re.search(r'\$\{?\w+\}?', matched):
+    # 已经是环境变量引用 (${VAR} 或 $UPPER_CASE)
+    if re.search(r'\$\{[A-Z_]+\}', matched) or re.search(r'\$[A-Z_]{3,}', matched):
         return True
     # 看起来像占位符
     if 'YOUR_' in matched.upper() or 'EXAMPLE' in matched.upper():
@@ -207,6 +215,26 @@ OWASP_PATTERNS = [
      'Potential TOCTOU race condition',
      'Use atomic operations or file locking',
      'CWE-367'),
+    # XXE - XML External Entity
+    (r'(?:etree\.parse|xml\.etree\.ElementTree|minidom\.parse|lxml\.etree\.parse)\s*\(', 'critical', 'xxe',
+     'Potential XXE vulnerability: XML parsing without disabling external entities',
+     'Use defusedxml or set resolve_entities=False / forbid_dtd=True',
+     'CWE-611'),
+    # NoSQL Injection
+    (r'(?:collection|db\.\w+)\.(?:find|find_one|aggregate)\s*\(\s*\{[^}]*\$where', 'critical', 'nosql-injection',
+     'Potential NoSQL injection: dynamic $where clause',
+     'Use parameterized queries with mongo-sanitize or validate user input',
+     'CWE-943'),
+    # Open Redirect
+    (r'(?:redirect|HttpResponseRedirect|RedirectResponse)\s*\(.*?(?:request\.args|request\.GET|req\.query|params\[)', 'medium', 'open-redirect',
+     'Potential open redirect: user-controlled URL in redirect',
+     'Validate redirect URLs against a whitelist of allowed domains',
+     'CWE-601'),
+    # LDAP Injection
+    (r'(?:ldap\.search|ldap\.filter|search_s|search_ext)\s*\(.*?(?:\+|format|f["\'])', 'high', 'ldap-injection',
+     'Potential LDAP injection: unsanitized input in LDAP query',
+     'Escape special LDAP characters: * ( ) \\ NUL. Use ldap3 safe filters.',
+     'CWE-90'),
 ]
 
 def scan_owasp(content: str, filepath: str) -> List[Finding]:
@@ -250,10 +278,55 @@ KNOWN_VULNERABLE = {
     'pyyaml': ('5.4', 'CVE-2020-14343', 'high', 'PyYAML < 5.4 has arbitrary code execution via yaml.load()'),
 }
 
+# npm 已知漏洞 (package.json)
+KNOWN_VULNERABLE_NPM = {
+    'lodash': ('4.17.21', 'CVE-2021-23337', 'high', 'lodash < 4.17.21 has command injection in template'),
+    'minimist': ('1.2.6', 'CVE-2021-44906', 'high', 'minimist < 1.2.6 has prototype pollution'),
+    'node-fetch': ('2.6.7', 'CVE-2022-0235', 'high', 'node-fetch < 2.6.7 leaks cookies to wrong domain'),
+    'semver': ('7.5.2', 'CVE-2022-25883', 'medium', 'semver < 7.5.2 has ReDoS vulnerability'),
+    'word-wrap': ('1.2.4', 'CVE-2023-26115', 'medium', 'word-wrap < 1.2.4 has ReDoS in result variable'),
+    'express': ('4.18.0', 'CVE-2024-29041', 'medium', 'express < 4.18.0 has open redirect in static()'),
+    'axios': ('1.6.0', 'CVE-2023-45857', 'medium', 'axios < 1.6.0 has SSRF via baseURL manipulation'),
+    'follow-redirects': ('1.15.4', 'CVE-2024-28849', 'high', 'follow-redirects < 1.15.4 leaks credentials'),
+}
+
 def scan_dependencies(target_path: str, filepath: str) -> List[Finding]:
     """扫描 requirements.txt 或 package.json 中的不安全依赖"""
     findings = []
     content = Path(filepath).read_text(errors='ignore')
+    filename = os.path.basename(filepath)
+
+    if filename == 'package.json':
+        # 解析 npm 依赖
+        try:
+            import json
+            pkg = json.loads(content)
+            deps = {}
+            deps.update(pkg.get('dependencies', {}))
+            deps.update(pkg.get('devDependencies', {}))
+            for pkg_name, version_spec in deps.items():
+                pkg_name_lower = pkg_name.lower()
+                if pkg_name_lower in KNOWN_VULNERABLE_NPM:
+                    vuln_version, cve, severity, desc = KNOWN_VULNERABLE_NPM[pkg_name_lower]
+                    # 解析语义版本 (去除 ^ ~ >= 等前缀)
+                    clean_ver = version_spec.lstrip('^~>=< ')
+                    if clean_ver < vuln_version:
+                        findings.append(Finding(
+                            file=filepath,
+                            line=0,
+                            severity=severity,
+                            category='dependency',
+                            rule_id=f'vuln-npm-{pkg_name_lower}',
+                            message=f'{desc} (installed: {clean_ver})',
+                            snippet=f'"{pkg_name}": "{version_spec}"',
+                            fix_suggestion=f'Upgrade {pkg_name} to >= {vuln_version}',
+                            cwe_id=cve
+                        ))
+        except (json.JSONDecodeError, KeyError):
+            pass
+        return findings
+
+    # requirements.txt 解析
     lines = content.split('\n')
 
     for i, line in enumerate(lines, 1):
@@ -494,7 +567,7 @@ def format_sarif(report: ScanReport) -> str:
                 'tool': {
                     'driver': {
                         'name': 'Security Guardian',
-                        'version': '0.2.0',
+                        'version': '0.3.0',
                         'informationUri': 'https://github.com/一人AI公司/security-guardian',
                         'rules': list(rules_seen.values()),
                     }
@@ -583,12 +656,90 @@ def format_markdown(report: ScanReport) -> str:
     return '\n'.join(lines)
 
 
+def format_html(report: ScanReport) -> str:
+    """HTML 格式输出（自包含暗色主题报告）"""
+    severity_emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🔵'}
+    severity_badge = {'critical': '#dc2626', 'high': '#ea580c', 'medium': '#ca8a04', 'low': '#2563eb'}
+
+    # 构建发现列表 HTML
+    findings_html = ''
+    if not report.findings:
+        findings_html = '<div class="clean">✅ 未发现安全问题</div>'
+    else:
+        for severity in ['critical', 'high', 'medium', 'low']:
+            sev_findings = [f for f in report.findings if f.severity == severity]
+            if not sev_findings:
+                continue
+            emoji = severity_emoji[severity]
+            badge = severity_badge[severity]
+            findings_html += f'<h3 style="color:{badge}">{emoji} {severity.upper()} ({len(sev_findings)})</h3>'
+            for f in sev_findings[:50]:
+                findings_html += f'''
+                <div class="finding">
+                    <div class="finding-header">
+                        <span class="rule-id">{f.rule_id}</span>
+                        <span class="file">📄 {f.file}:{f.line}</span>
+                    </div>
+                    <p class="message">{f.message}</p>
+                    <pre class="snippet">{f.snippet}</pre>
+                    <p class="fix">💡 修复: {f.fix_suggestion}</p>
+                    {f'<p class="cwe">📚 {f.cwe_id}</p>' if f.cwe_id else ''}
+                </div>'''
+
+    return f'''<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Guardian - 扫描报告</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#0d1117; color:#c9d1d9; padding:24px; }}
+.header {{ text-align:center; padding:32px 0; border-bottom:1px solid #21262d; margin-bottom:24px; }}
+.header h1 {{ color:#58a6ff; font-size:28px; }}
+.header .meta {{ color:#8b949e; margin-top:8px; }}
+.summary {{ display:flex; gap:16px; justify-content:center; margin-bottom:32px; flex-wrap:wrap; }}
+.summary-card {{ background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px 24px; text-align:center; min-width:100px; }}
+.summary-card .count {{ font-size:32px; font-weight:bold; }}
+.summary-card.critical .count {{ color:#dc2626; }}
+.summary-card.high .count {{ color:#ea580c; }}
+.summary-card.medium .count {{ color:#ca8a04; }}
+.summary-card.low .count {{ color:#2563eb; }}
+.finding {{ background:#161b22; border:1px solid #21262d; border-radius:8px; padding:16px; margin-bottom:12px; }}
+.finding-header {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }}
+.rule-id {{ background:#1f6feb22; color:#58a6ff; padding:2px 8px; border-radius:4px; font-family:monospace; font-size:13px; }}
+.file {{ color:#8b949e; font-size:13px; }}
+.message {{ margin:8px 0; }}
+.snippet {{ background:#0d1117; border:1px solid #30363d; border-radius:6px; padding:12px; font-family:'Cascadia Code',Consolas,monospace; font-size:13px; overflow-x:auto; white-space:pre-wrap; }}
+.fix {{ color:#3fb950; margin-top:8px; font-size:14px; }}
+.cwe {{ color:#8b949e; font-size:12px; margin-top:4px; }}
+.clean {{ text-align:center; padding:48px; color:#3fb950; font-size:20px; }}
+.footer {{ text-align:center; color:#484f58; margin-top:32px; padding-top:16px; border-top:1px solid #21262d; font-size:12px; }}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>🔒 Security Guardian 扫描报告</h1>
+    <p class="meta">扫描时间: {report.scan_time} | 目标: {report.target_path} | 文件: {report.scanned_files}/{report.total_files}</p>
+</div>
+<div class="summary">
+    <div class="summary-card critical"><div class="count">{report.summary["by_severity"].get("critical", 0)}</div><div>🔴 CRITICAL</div></div>
+    <div class="summary-card high"><div class="count">{report.summary["by_severity"].get("high", 0)}</div><div>🟠 HIGH</div></div>
+    <div class="summary-card medium"><div class="count">{report.summary["by_severity"].get("medium", 0)}</div><div>🟡 MEDIUM</div></div>
+    <div class="summary-card low"><div class="count">{report.summary["by_severity"].get("low", 0)}</div><div>🔵 LOW</div></div>
+</div>
+{findings_html}
+<div class="footer">Security Guardian v0.3.0 · 一人AI公司 · {report.scan_time}</div>
+</body>
+</html>'''
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Security Guardian - AI 代码安全扫描引擎'
     )
     parser.add_argument('--path', '-p', default='.', help='目标项目路径 (默认: 当前目录)')
-    parser.add_argument('--output', '-o', choices=['json', 'markdown', 'sarif'], default='markdown',
+    parser.add_argument('--output', '-o', choices=['json', 'markdown', 'sarif', 'html'], default='markdown',
                         help='输出格式 (默认: markdown; sarif 用于 GitHub Code Scanning)')
     parser.add_argument('--severity', '-s', choices=['critical', 'high', 'medium', 'low'],
                         help='最低严重度过滤')
@@ -609,6 +760,8 @@ def main():
         print(format_json(report))
     elif args.output == 'sarif':
         print(format_sarif(report))
+    elif args.output == 'html':
+        print(format_html(report))
     else:
         print(format_markdown(report))
 

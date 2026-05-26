@@ -1,0 +1,50 @@
+# Security Guardian - GitHub Actions CI
+# 用法: 复制到 .github/workflows/security-scan.yml
+# 功能: 每次 push/PR 自动扫描代码，结果出现在 Security → Code Scanning
+
+name: Security Guardian Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  # 支持手动触发
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security Guardian
+    runs-on: ubuntu-latest
+    permissions:
+      # 写入 SARIF 结果需要 security-events 权限
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Run Security Guardian
+        run: |
+          pip install --quiet -r <(echo "") || true
+          python scripts/scan.py \
+            --path . \
+            --output sarif \
+            > security-guardian-results.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: security-guardian-results.sarif
+          category: security-guardian
+
+      - name: Summary
+        run: |
+          echo "## 🔒 Security Guardian Results" >> $GITHUB_STEP_SUMMARY
+          python scripts/scan.py --path . --output markdown >> $GITHUB_STEP_SUMMARY

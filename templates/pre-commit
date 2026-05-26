@@ -1,0 +1,7 @@
+#!/bin/sh
+# Security Guardian Pre-Commit Hook
+# 安装: cp templates/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# 详情: scripts/git-hook.py
+
+python scripts/git-hook.py
+exit $?

@@ -1,0 +1,21 @@
+# Security Guardian - Pre-Commit Hook 配置
+# 用法 (pre-commit 框架):
+#   pip install pre-commit
+#   cat .pre-commit-config.yaml >> 项目的 .pre-commit-config.yaml
+#   pre-commit install
+#
+# 用法 (独立):
+#   直接复制 templates/pre-commit → .git/hooks/pre-commit
+
+repos:
+  - repo: local
+    hooks:
+      - id: security-guardian
+        name: Security Guardian
+        description: 扫描代码中的密钥泄露、OWASP 漏洞、不安全依赖
+        entry: python scripts/git-hook.py
+        language: system
+        types: [text]
+        exclude: '^tests/|\.md$'
+        pass_filenames: false
+        stages: [pre-commit]

@@ -114,6 +114,20 @@ def scan_secrets(content: str, filepath: str) -> List[Finding]:
                 ))
     return findings
 
+def has_regex_metas(line: str) -> bool:
+    """检测行是否包含正则表达式元字符（如 \\s, (?:, [^, \\| 等）"""
+    regex_escapes = ['\\s', '\\d', '\\w', '\\S', '\\D', '\\W',
+                     '\\b', '\\B', '\\A', '\\Z', '\\|', '\\(']
+    regex_tokens = ['(?:', '[^', '|']
+    for esc in regex_escapes:
+        if esc in line:
+            return True
+    for tok in regex_tokens:
+        if tok in line:
+            return True
+    return False
+
+
 def is_false_positive(line: str, matched: str) -> bool:
     """检测误报"""
     # 注释中的密钥
@@ -128,6 +142,19 @@ def is_false_positive(line: str, matched: str) -> bool:
     # 明显是文档/示例
     if any(kw in line.lower() for kw in ['example', 'placeholder', 'your-api-key', 'xxx', 'TODO']):
         return True
+    # 安全扫描器自扫描：规则定义行（如 (r'innerHTML|...') 本身不是漏洞
+    # 检测 r'...' 或 r"..." 形式的正则定义行（可能在元组/列表内）
+    stripped = line.strip()
+    is_raw_str = stripped.startswith("r'") or stripped.startswith('r"')
+    is_tuple_raw = stripped.startswith("(r'") or stripped.startswith('(r"')
+    if (is_raw_str or is_tuple_raw) and has_regex_metas(line):
+        return True
+    # fix.py 中的 'before': 示例代码不是真实漏洞
+    if "'before':" in line or '"before":' in line:
+        return True
+    # 依赖漏洞描述中的示例代码（如 yaml.load() in CVE description）
+    if 'CVE-' in line or 'vulnerab' in line.lower() or 'arbitrary code' in line.lower():
+        return True
     return False
 
 # ============================================================
@@ -136,7 +163,7 @@ def is_false_positive(line: str, matched: str) -> bool:
 
 OWASP_PATTERNS = [
     # SQL Injection
-    (r'(?:execute|cursor\.execute)\s*\(\s*f["\'].*?(?:%s|\{\}|format|\+|f["\'])', 'critical', 'sql-injection',
+    (r'(?:execute|cursor\.execute)\s*\(\s*f["\'].*?(?:\{.*?\}|%s|\{\}|format|\+|f["\'])', 'critical', 'sql-injection',
      'Potential SQL injection: dynamic query building',
      'Use parameterized queries: cursor.execute("SELECT * FROM users WHERE id=?", (user_id,))',
      'CWE-89'),
@@ -188,7 +215,11 @@ def scan_owasp(content: str, filepath: str) -> List[Finding]:
     lines = content.split('\n')
     for pattern, severity, rule_id, message, fix, cwe in OWASP_PATTERNS:
         for i, line in enumerate(lines, 1):
-            if re.search(pattern, line, re.IGNORECASE):
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                # 过滤误报（规则定义行、注释、占位符等）
+                if is_false_positive(line, match.group(0)):
+                    continue
                 findings.append(Finding(
                     file=filepath,
                     line=i,
@@ -313,10 +344,15 @@ TEXT_EXTENSIONS = {
 }
 
 SKIP_DIRS = {'.git', '__pycache__', 'node_modules', 'venv', '.venv',
-             '.tox', '.eggs', 'build', 'dist', '.mypy_cache', '.pytest_cache'}
+             '.tox', '.eggs', 'build', 'dist', '.mypy_cache', '.pytest_cache',
+             'tests', '__tests__'}
 
 DEPENDENCY_FILES = {'requirements.txt', 'Pipfile', 'pyproject.toml',
                     'package.json', 'go.mod', 'Cargo.toml', 'Gemfile'}
+
+# 文档和测试文件默认排除（可手动指定 --path 包含）
+SKIP_FILE_PATTERNS = ['test_', '_test.', 'conftest.', 'setup.', '__init__.']
+SKIP_EXTENSIONS = {'.md'}  # Markdown 文档不做代码扫描
 
 
 def should_scan(filepath: str) -> bool:
@@ -324,6 +360,11 @@ def should_scan(filepath: str) -> bool:
     path = Path(filepath)
     name = path.name
     suffix = path.suffix.lower()
+    # 排除测试文件和文档
+    if any(name.startswith(p) or p in name for p in SKIP_FILE_PATTERNS):
+        return False
+    if suffix in SKIP_EXTENSIONS:
+        return False
     # 文件名匹配
     if name in {'Dockerfile', '.env'}:
         return True
@@ -425,6 +466,71 @@ def format_json(report: ScanReport) -> str:
     }, indent=2, ensure_ascii=False)
 
 
+def format_sarif(report: ScanReport) -> str:
+    """SARIF 2.1.0 格式输出（GitHub Code Scanning 兼容）"""
+    severity_to_level = {
+        'critical': 'error',
+        'high': 'error',
+        'medium': 'warning',
+        'low': 'note',
+    }
+
+    # 收集中用到的所有规则
+    rules_seen = {}
+    for f in report.findings:
+        if f.rule_id not in rules_seen:
+            rules_seen[f.rule_id] = {
+                'id': f.rule_id,
+                'name': f.rule_id,
+                'shortDescription': {'text': f.message},
+                'help': {'text': f.fix_suggestion},
+            }
+
+    sarif = {
+        'version': '2.1.0',
+        '$schema': 'https://json.schemastore.org/sarif-2.1.0.json',
+        'runs': [
+            {
+                'tool': {
+                    'driver': {
+                        'name': 'Security Guardian',
+                        'version': '0.2.0',
+                        'informationUri': 'https://github.com/一人AI公司/security-guardian',
+                        'rules': list(rules_seen.values()),
+                    }
+                },
+                'results': [
+                    {
+                        'ruleId': f.rule_id,
+                        'level': severity_to_level.get(f.severity, 'warning'),
+                        'message': {'text': f.message},
+                        'locations': [
+                            {
+                                'physicalLocation': {
+                                    'artifactLocation': {
+                                        'uri': f.file.replace('\\', '/'),
+                                    },
+                                    'region': {
+                                        'startLine': f.line,
+                                        'startColumn': 1,
+                                    },
+                                }
+                            }
+                        ],
+                        'properties': {
+                            'severity': f.severity,
+                            'category': f.category,
+                            'fix': f.fix_suggestion,
+                        },
+                    }
+                    for f in report.findings
+                ],
+            }
+        ],
+    }
+    return json.dumps(sarif, indent=2, ensure_ascii=False)
+
+
 def format_markdown(report: ScanReport) -> str:
     """Markdown 格式输出"""
     lines = [
@@ -482,8 +588,8 @@ def main():
         description='Security Guardian - AI 代码安全扫描引擎'
     )
     parser.add_argument('--path', '-p', default='.', help='目标项目路径 (默认: 当前目录)')
-    parser.add_argument('--output', '-o', choices=['json', 'markdown'], default='markdown',
-                        help='输出格式 (默认: markdown)')
+    parser.add_argument('--output', '-o', choices=['json', 'markdown', 'sarif'], default='markdown',
+                        help='输出格式 (默认: markdown; sarif 用于 GitHub Code Scanning)')
     parser.add_argument('--severity', '-s', choices=['critical', 'high', 'medium', 'low'],
                         help='最低严重度过滤')
     args = parser.parse_args()
@@ -501,6 +607,8 @@ def main():
 
     if args.output == 'json':
         print(format_json(report))
+    elif args.output == 'sarif':
+        print(format_sarif(report))
     else:
         print(format_markdown(report))
 

@@ -1,0 +1,75 @@
+# Security Guardian — Cline 安全规则
+
+## 代码生成后自动安全检查
+
+你每次生成或修改代码文件后，必须执行以下安全扫描：
+
+### Python 文件 (.py)
+生成/修改任何 `.py` 文件后：
+```bash
+python .cline/security-guardian/scripts/scan.py --path . --output json --severity high
+```
+
+### 依赖文件 (requirements.txt, package.json)
+修改依赖文件后：
+```bash
+python .cline/security-guardian/scripts/scan.py --path . --output json --severity medium
+```
+
+### Dockerfile
+生成/修改 Dockerfile 后：
+```bash
+python .cline/security-guardian/scripts/scan.py --path . --output json --severity medium
+```
+
+### .env / 配置文件
+生成/修改 `.env` 或配置文件后：
+```bash
+python .cline/security-guardian/scripts/scan.py --path . --output json --severity high
+```
+
+## 扫描结果处理规则
+
+- **Critical 级别**（密钥泄露、SQL注入、代码执行）：立即修复，不要继续生成其他代码
+- **High 级别**（XSS、路径穿越、硬编码密码）：修复后再继续
+- **Medium 级别**（依赖漏洞、Docker配置）：标记为待修复，可以继续工作
+- **Low 级别**：记录下来，方便时处理
+
+## 禁止的行为
+
+- ❌ 永远不要在代码中硬编码 API 密钥、Token、密码
+- ❌ 永远不要使用字符串拼接构建 SQL 查询
+- ❌ 永远不要使用 `pickle.loads()` 处理不可信数据
+- ❌ 永远不要执行 `os.system()` 或 `subprocess(shell=True)` 处理用户输入
+- ❌ Docker 镜像不要以 root 用户运行
+
+## 安全编码规范
+
+### SQL 查询
+```python
+# ✅ 正确 — 参数化查询
+cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+
+# ❌ 错误 — 字符串拼接
+cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
+```
+
+### 密钥管理
+```python
+# ✅ 正确 — 环境变量
+import os
+api_key = os.environ["OPENAI_API_KEY"]
+
+# ❌ 错误 — 硬编码
+api_key = "sk-abc123..."
+```
+
+### 用户输入处理
+```python
+# ✅ 正确 — 输出编码
+from markupsafe import escape
+safe_html = f"<div>{escape(user_name)}</div>"
+
+# ❌ 错误 — 直接拼接
+safe_html = f"<div>{user_name}</div>"
+```

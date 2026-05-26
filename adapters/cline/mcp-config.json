@@ -1,0 +1,15 @@
+# 在 Cline MCP 配置中添加:
+# VS Code settings.json → "cline.mcpServers"
+
+{
+  "mcpServers": {
+    "security-guardian": {
+      "command": "python",
+      "args": [
+        ".cline/security-guardian/adapters/cline/security-guardian-mcp.py"
+      ],
+      "env": {},
+      "disabled": false
+    }
+  }
+}

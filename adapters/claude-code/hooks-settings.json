@@ -1,0 +1,52 @@
+{
+  "_comment": "Security Guardian hooks for Claude Code — 自动安全扫描",
+  "_install": "复制到项目的 .claude/settings.json 或全局 ~/.claude/settings.json",
+  "_docs": "https://docs.anthropic.com/en/docs/claude-code/hooks-guide",
+
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/security-guardian/scripts/scan.py\" --path \"$CLAUDE_PROJECT_DIR\" --output json --severity high 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(requirements*.txt|package.json|Dockerfile|\\.env)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/security-guardian/scripts/scan.py\" --path \"$CLAUDE_PROJECT_DIR\" --output json --severity medium 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit *)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/security-guardian/scripts/git-hook.py\" 2>/dev/null; if [ $? -ne 0 ]; then echo '⛔ 安全扫描发现严重问题，提交已阻止。请修复后重试。' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ],
+
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/security-guardian/scripts/scan.py\" --path \"$CLAUDE_PROJECT_DIR\" --output markdown --severity high 2>/dev/null | head -20 || true"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "python",
+      "args": [
+        "${SG_ROOT}/middleware/mcp_proxy.py",
+        "--upstream", "npx @modelcontextprotocol/server-filesystem /workspace",
+        "--policy", "normal"
+      ],
+      "env": {
+        "SG_AGENT_NAME": "claude-code"
+      }
+    },
+    "github": {
+      "command": "python",
+      "args": [
+        "${SG_ROOT}/middleware/mcp_proxy.py",
+        "--upstream", "npx @modelcontextprotocol/server-github-tools",
+        "--policy", "normal"
+      ],
+      "env": {
+        "SG_AGENT_NAME": "claude-code"
+      }
+    },
+    "playwright": {
+      "command": "python",
+      "args": [
+        "${SG_ROOT}/middleware/mcp_proxy.py",
+        "--upstream", "npx @playwright/mcp",
+        "--policy", "relaxed"
+      ],
+      "env": {
+        "SG_AGENT_NAME": "claude-code"
+      }
+    }
+  }
+}

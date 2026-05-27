@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "security-guardian-filesystem": {
+      "command": "python",
+      "args": [
+        "${SG_ROOT}/middleware/mcp_proxy.py",
+        "--upstream", "npx @modelcontextprotocol/server-filesystem ${WORKSPACE}",
+        "--policy", "normal"
+      ],
+      "env": {
+        "SG_AGENT_NAME": "cline"
+      },
+      "disabled": false
+    }
+  }
+}

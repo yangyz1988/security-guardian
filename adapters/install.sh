@@ -136,6 +136,32 @@ if $INSTALL_CLINE; then
 fi
 
 # ============================================================
+# MCP Middleware 提示
+# ============================================================
+if $INSTALL_ALL; then
+    echo "─── MCP Middleware ───"
+    echo ""
+    echo "MCP Middleware 是 AI 编程 Agent 的代码安全层——"
+    echo "在 AI 写文件时实时扫描并拦截密钥/漏洞代码。"
+    echo ""
+    echo "快速接入 Claude Code/Cline/Cursor:"
+    echo "  bash middleware/setup.sh"
+    echo ""
+    echo "详细文档:"
+    echo "  middleware/README.md"
+    echo "  middleware/AGENT_INTEGRATION.md"
+    echo ""
+    echo "预置配置模板:"
+    echo "  middleware/config-templates/"
+    echo "    ├── claude-code-mcp.json"
+    echo "    ├── cline-mcp.json"
+    echo "    └── cursor-mcp.json"
+    echo ""
+    echo "✅ MCP Middleware: 就绪"
+    echo ""
+fi
+
+# ============================================================
 # 完成
 # ============================================================
 echo "=============================================="

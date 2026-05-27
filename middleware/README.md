@@ -20,16 +20,14 @@ AI: 写入 api_key = "sk-***"
 ## 快速开始
 
 ```bash
-# 1. 确保在 security-guardian 项目根目录
+# 自动检测并配置 AI 编程 Agent（推荐）
 cd security-guardian/
+bash middleware/setup.sh
 
-# 2. 以 normal 模式启动代理，挡在 filesystem MCP 前面
+# 或手动配置：将代理挡在 filesystem MCP 前面测试
 python middleware/mcp_proxy.py \
     --upstream "npx @modelcontextprotocol/server-filesystem /your/project" \
     --policy normal
-
-# 3. 让 AI 编程 Agent 连接这个代理
-#    不连原始 MCP 服务器，连这个代理
 ```
 
 ## 使用场景
@@ -40,6 +38,10 @@ python middleware/mcp_proxy.py \
 | Cline (VS Code) | MCP 配置 | `cline_mcp_settings.json` |
 | Cursor | MCP 设置 | Settings → MCP Servers |
 | 任何 MCP 客户端 | 任何 MCP 服务器 | 把原地址换成代理地址 |
+
+**一键配置**: 运行 `bash middleware/setup.sh` 自动检测并配置。
+
+**预置模板**: `middleware/config-templates/` 下有各 Agent 的 JSON 模板。
 
 详见 `middleware/AGENT_INTEGRATION.md`。
 
@@ -104,16 +106,22 @@ AI Agent ──→ [MCP Proxy (透明代理)] ──→ [上游 MCP 服务器]
 ```
 security-guardian/
 ├── middleware/
-│   ├── mcp_proxy.py        # MCP 透明代理（核心）
-│   ├── policy_engine.py    # 策略决策引擎
-│   ├── audit_logger.py     # 审计日志
-│   ├── config.py           # 配置管理
-│   ├── AGENT_INTEGRATION.md # AI Agent 集成指南
-│   └── test/               # 测试
+│   ├── mcp_proxy.py           # MCP 透明代理（核心）
+│   ├── policy_engine.py       # 策略决策引擎
+│   ├── audit_logger.py        # 审计日志
+│   ├── config.py              # 配置管理
+│   ├── license.py             # License Key 校验
+│   ├── setup.sh               # ✨ 一键接入 AI 编程 Agent
+│   ├── AGENT_INTEGRATION.md   # AI Agent 集成指南
+│   ├── config-templates/      # 预置配置模板
+│   │   ├── claude-code-mcp.json
+│   │   ├── cline-mcp.json
+│   │   └── cursor-mcp.json
+│   └── test/                  # 测试
 ├── scripts/
-│   ├── scan.py             # 安全扫描引擎（65+ 规则）
-│   └── ...                 # 其他脚本
-└── adapters/               # 多平台适配器
+│   ├── scan.py                # 安全扫描引擎（65+ 规则）
+│   └── ...
+└── adapters/                  # 多平台适配器（旧版扫描集成）
 ```
 
 ## 测试

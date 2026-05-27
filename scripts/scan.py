@@ -739,10 +739,18 @@ def main():
         description='Security Guardian - AI 代码安全扫描引擎'
     )
     parser.add_argument('--path', '-p', default='.', help='目标项目路径 (默认: 当前目录)')
-    parser.add_argument('--output', '-o', choices=['json', 'markdown', 'sarif', 'html'], default='markdown',
-                        help='输出格式 (默认: markdown; sarif 用于 GitHub Code Scanning)')
+    parser.add_argument('--output', '-o', choices=['json', 'markdown', 'sarif', 'html', 'pdf'], default='markdown',
+                        help='输出格式 (默认: markdown; sarif 用于 GitHub Code Scanning; pdf 需安装 reportlab)')
+    parser.add_argument('--output-file', type=str, default='',
+                        help='输出文件路径 (PDF 专用)')
     parser.add_argument('--severity', '-s', choices=['critical', 'high', 'medium', 'low'],
                         help='最低严重度过滤')
+    parser.add_argument('--compliance', choices=['owasp', 'soc2', 'iso27001', 'pci'],
+                        help='合规框架映射 (仅 PDF 输出)')
+    parser.add_argument('--company', type=str, default='',
+                        help='公司名称 (仅 PDF 输出)')
+    parser.add_argument('--project', type=str, default='',
+                        help='项目名称 (仅 PDF 输出)')
     args = parser.parse_args()
 
     print(f"🔍 Scanning: {args.path} ...", file=sys.stderr)
@@ -762,6 +770,23 @@ def main():
         print(format_sarif(report))
     elif args.output == 'html':
         print(format_html(report))
+    elif args.output == 'pdf':
+        # 延迟导入 — reportlab 是可选依赖
+        try:
+            from pdf_report import build_pdf_report
+        except ImportError:
+            print("❌ 'pdf' 输出需要安装 reportlab: pip install reportlab", file=sys.stderr)
+            sys.exit(1)
+        pdf_path = args.output_file or f"security-guardian-report-{datetime.now().strftime('%Y%m%d')}.pdf"
+        if not pdf_path.endswith('.pdf'):
+            pdf_path += '.pdf'
+        build_pdf_report(
+            report, pdf_path,
+            framework=args.compliance,
+            company_name=args.company,
+            project_name=args.project,
+        )
+        print(f"✅ PDF 报告已生成: {pdf_path}", file=sys.stderr)
     else:
         print(format_markdown(report))
 

@@ -8,11 +8,12 @@ import sys
 import os
 from datetime import datetime
 
-# 确保能导入 scan 模块
+# 确保项目根可导入
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SCAN_DIR = os.path.join(SCRIPT_DIR, '..', 'scripts')
-sys.path.insert(0, SCAN_DIR)
-import scan
+PROJECT_ROOT = os.path.join(SCRIPT_DIR, '..')
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+import scripts.scan as scan
 
 # 配置
 TARGET = os.environ.get('SG_SCAN_TARGET', os.path.expanduser('~/一人AI公司'))

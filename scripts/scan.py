@@ -773,7 +773,7 @@ def main():
     elif args.output == 'pdf':
         # 延迟导入 — reportlab 是可选依赖
         try:
-            from pdf_report import build_pdf_report
+            from scripts.pdf_report import build_pdf_report
         except ImportError:
             print("❌ 'pdf' 输出需要安装 reportlab: pip install reportlab", file=sys.stderr)
             sys.exit(1)

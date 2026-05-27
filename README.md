@@ -52,15 +52,39 @@ No secret hits your disk. No commit. No push. No GitHub security alert.
 
 ## ⚡ Quick start
 
+### Option A: One-click for AI agents (recommended)
+
 ```bash
-# 1. Clone & go
 git clone https://github.com/yangyz1988/security-guardian.git
 cd security-guardian
+bash middleware/setup.sh    # Auto-detect & configure Claude Code / Cline / Cursor
+```
 
-# 2. One-command setup (auto-detects your AI agent)
-bash middleware/setup.sh
+### Option B: pip install (CLI only)
 
-# 3. Done. Your AI agent is now protected.
+```bash
+pip install security-guardian        # scan, fix
+pip install security-guardian[pdf]   # with PDF compliance report support
+
+# Scan a project
+sg scan --path ./my-project --output json
+
+# Generate a compliance PDF report
+sg scan --path ./my-project --output pdf --compliance soc2 --company "Acme Corp"
+```
+
+### Option C: Run from source (all features)
+
+```bash
+git clone https://github.com/yangyz1988/security-guardian.git
+cd security-guardian
+pip install -e ".[pdf,dev]"
+
+# CLI works anywhere:
+sg scan --path .
+
+# MCP Middleware:
+python middleware/mcp_proxy.py --upstream "python my-server.py"
 ```
 
 That's it. Next time Claude writes a secret, Cline edits a config file, or Cursor touches a Dockerfile — Security Guardian scans, warns, and blocks.

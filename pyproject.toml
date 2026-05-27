@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "security-guardian"
+version = "0.7.0"
+description = "Your AI Coding Agent's Security Layer — real-time secret & vulnerability scanning via MCP Middleware"
+readme = "README.md"
+authors = [
+    { name = "Security Guardian Team" },
+]
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Environment :: Console",
+]
+requires-python = ">=3.10"
+keywords = [
+    "security", "mcp", "ai", "code-scanning", "guardian",
+    "secrets-detection", "code-security", "ai-agent-security",
+]
+
+[project.urls]
+Homepage = "https://github.com/yangyz1988/security-guardian"
+Source = "https://github.com/yangyz1988/security-guardian"
+BugTracker = "https://github.com/yangyz1988/security-guardian/issues"
+
+[project.scripts]
+sg = "security_guardian.cli:main"
+
+[project.optional-dependencies]
+pdf = ["reportlab>=4.0"]
+dev = [
+    "pytest>=7",
+    "pytest-cov>=4",
+]
+
+[tool.setuptools]
+packages = [
+    "security_guardian",
+    "middleware",
+    "scripts",
+]
+
+[tool.setuptools.package-dir]
+security_guardian = "src/security_guardian"
+middleware = "middleware"
+scripts = "scripts"
+
+[tool.setuptools.package-data]
+middleware = ["*.md", "config-templates/*.json", "test/*.py"]
+scripts = ["*"]
+
+[tool.setuptools.exclude-package-data]
+middleware = ["test/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "middleware/test"]
+
+[project.entry-points."sg.commands"]
+scan = "scripts.scan:main"
+fix = "scripts.fix:main"
+proxy = "middleware.mcp_proxy:main"

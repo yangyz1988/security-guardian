@@ -37,12 +37,14 @@ from reportlab.platypus import (
 from reportlab.platypus.frames import Frame
 from reportlab.platypus.doctemplate import PageTemplate
 
-# 确保可导入
+# 确保项目根可导入（dev 和 pip 两种模式）
 _SCRIPT_DIR = Path(__file__).resolve().parent
-if str(_SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPT_DIR))
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+for d in [str(_PROJECT_ROOT), str(_SCRIPT_DIR)]:
+    if d not in sys.path:
+        sys.path.insert(0, d)
 
-from scan import Finding, ScanReport, format_markdown
+from scripts.scan import Finding, ScanReport, format_markdown
 
 # ──────────────────────────────────────────────
 # 合规框架映射

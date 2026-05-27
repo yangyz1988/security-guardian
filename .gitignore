@@ -6,3 +6,6 @@ venv/
 .env
 reports/
 *.sarif
+*.egg-info/
+build/
+dist/

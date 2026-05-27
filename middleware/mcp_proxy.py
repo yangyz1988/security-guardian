@@ -11,20 +11,20 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-# 确保 middleware 和 scripts 路径可导入
+# 确保项目根可导入（dev 和 pip 两种模式）
 _mw_dir = Path(__file__).resolve().parent
-_scripts_dir = _mw_dir.parent / "scripts"
-for d in [str(_mw_dir), str(_scripts_dir)]:
+_project_root = _mw_dir.parent
+for d in [str(_project_root), str(_mw_dir)]:
     if d not in sys.path:
         sys.path.insert(0, d)
 
 # 导入组件
 import hashlib
-from scan import scan_secrets, scan_owasp, Finding
-from policy_engine import PolicyEngine, PolicyMode, should_block, PolicyAction
-from audit_logger import AuditLogger
-from config import load_config, get_default_config_path
-import license as lic
+from scripts.scan import scan_secrets, scan_owasp, Finding
+from middleware.policy_engine import PolicyEngine, PolicyMode, should_block, PolicyAction
+from middleware.audit_logger import AuditLogger
+from middleware.config import load_config, get_default_config_path
+from middleware import license as lic
 
 HAS_SCAN_ENGINE = True
 WRITE_TOOLS = {

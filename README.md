@@ -7,18 +7,19 @@ Real-time secret & vulnerability scanning — stop leaks before they happen.
 
 <div>
 
-[![Version](https://img.shields.io/badge/version-v0.6.0-blue)](https://github.com/yangyz1988/security-guardian)
+[![Version](https://img.shields.io/badge/version-v0.7.1-blue)](https://github.com/yangyz1988/security-guardian)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](#)
-[![Tests](https://img.shields.io/badge/tests-41%2F41-passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-3%2F3-passing-brightgreen)](#)
+[![Pip](https://img.shields.io/badge/pip-install-orange)](#)
 
 </div>
 
-### ✨ One command to secure your AI agent
+---
 
-```bash
-bash middleware/setup.sh    # Auto-detect & configure Claude Code / Cline / Cursor
-```
+### 🎬 See it in action
+
+![Demo GIF](docs/demo.gif)
 
 ---
 

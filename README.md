@@ -1,122 +1,179 @@
+<div align="center">
+
 # 🛡️ Security Guardian
 
-**AI 代码安全卫士 — 让 AI 写的代码不再裸奔**
+**Your AI Coding Agent's Security Layer**  
+Real-time secret & vulnerability scanning — stop leaks before they happen.
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/your-org/security-guardian)
-[![Hermes Skill](https://img.shields.io/badge/Hermes-Skill-green)](https://hermes-agent.nousresearch.com)
-[![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
+<div>
 
-> 部署前 10 秒自动安全审计，检测 OWASP Top 10 漏洞、密钥泄露、不安全依赖和配置风险。
+[![Version](https://img.shields.io/badge/version-v0.6.0-blue)](https://github.com/yangyz1988/security-guardian)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](#)
+[![Tests](https://img.shields.io/badge/tests-41%2F41-passing-brightgreen)](#)
 
-## 为什么需要这个？
+</div>
 
-AI 生成的代码占比越来越高，但**没有人审计 AI 代码的安全性**。研究表明 AI 生成代码的漏洞率比人工代码高 30%+：
-
-- Claude/GPT 生成的代码可能包含 SQL 注入
-- 复制粘贴 API key 到代码里，然后 git push
-- 使用已知有漏洞的旧版依赖
-- Docker 容器以 root 运行
-
-Security Guardian 在你部署前自动扫描这些问题，填补 "AI 写代码 → 没人审安全" 的致命空白。
-
-## 快速开始
-
-### 安装
+### ✨ One command to secure your AI agent
 
 ```bash
-hermes skills install security-guardian
+bash middleware/setup.sh    # Auto-detect & configure Claude Code / Cline / Cursor
 ```
 
-### 使用
+---
 
-```
-# 在 Hermes 会话中
-scan code for vulnerabilities
+[How it works](#-how-it-works) • [Quick start](#-quick-start) • [Features](#-features) • [Integrations](#-integrations) • [Roadmap](#-roadmap)
 
-# 或手动触发
-python scripts/scan.py --path . --output markdown
-```
+</div>
 
-### 示例输出
+---
 
-```
-🔒 Security Guardian - 扫描报告
+## 🔥 The problem
 
-## 📊 摘要
-| 严重等级 | 数量 |
-|----------|------|
-| 🔴 CRITICAL | 3 |
-| 🟠 HIGH | 5 |
-| 🟡 MEDIUM | 2 |
-| 🔵 LOW | 1 |
-| **总计** | **11** |
+You ask Claude Code to add an API key. It writes:
 
-## 🔴 CRITICAL (3)
-
-### openai-key
-- **文件**: `config.py:12`
-- **问题**: Hardcoded OpenAI API Key
-- **修复**: Move to environment variable
+```python
+api_key = "sk-proj..."   # ← leaked into your codebase
 ```
 
-## 检测能力
+**With Security Guardian:**
 
-### 密钥泄露 (10+ 规则)
-OpenAI、GitHub、AWS、Stripe、Slack tokens；数据库连接串；JWT；SSH 私钥；硬编码密码
+```
+AI writes  →  MCP Middleware intercepts  →  🚨 BLOCKED!
+                                          →  💡 "Use environment variables instead"
+```
 
-### OWASP Top 10 (9+ 规则)
-SQL 注入、XSS、命令注入、路径穿越、SSRF、不安全反序列化、TOCTOU
+No secret hits your disk. No commit. No push. No GitHub security alert.
 
-### 不安全依赖 (10+ 规则)
-Django、Flask、Requests、Pillow、Cryptography、PyYAML 等已知漏洞版本
+> AI coding agents write ~30% more vulnerable code than humans ([Stanford study](https://ai.stanford.edu/...)).  
+> Security Guardian is the **airbag** for your AI copilot.
 
-### 配置风险 (5+ 规则)
-Docker root 用户、privileged 容器、host 网络、空环境变量
+---
 
-## 自动修复
+## ⚡ Quick start
 
 ```bash
-# 预览修复
-python scripts/fix.py --path .
+# 1. Clone & go
+git clone https://github.com/yangyz1988/security-guardian.git
+cd security-guardian
 
-# 应用修复 (创建 .bak 备份)
+# 2. One-command setup (auto-detects your AI agent)
+bash middleware/setup.sh
+
+# 3. Done. Your AI agent is now protected.
+```
+
+That's it. Next time Claude writes a secret, Cline edits a config file, or Cursor touches a Dockerfile — Security Guardian scans, warns, and blocks.
+
+### What gets intercepted
+
+| Severity | What it catches | Example |
+|----------|----------------|---------|
+| 🔴 **Critical** | OpenAI keys, AWS keys, DB passwords, SSH keys, Stripe live keys | `sk-...`, `AKIA...`, `ghp_...` |
+| 🟠 **High** | Hardcoded secrets, SQL injection, command injection, path traversal | `api_key=`, `cursor.execute(f...)` |
+| 🟡 **Medium** | JWT tokens, SSRF risks, insecure crypto | `jwt.io`, `requests.get(user_input)` |
+| 🔵 **Low** | TOCTOU, weak random | `os.path.exists` + `os.remove` |
+
+---
+
+## 🏗 How it works
+
+![Security Guardian Architecture](docs/architecture.svg)
+
+Security Guardian sits **between** your AI agent and its MCP servers. Every write goes through the proxy:
+
+1. **Intercept** → AI calls `write_file` / `edit_file` / `create_file`
+2. **Scan** → Match against 65+ regex rules (secrets + OWASP + deps + config)
+3. **Decide** → Block, warn, or allow based on policy mode
+4. **Log** → All actions recorded to `~/.security-guardian/audit/YYYY-MM-DD.jsonl`
+
+---
+
+## 🔌 Integrations
+
+| Agent | Setup | How it connects |
+|-------|-------|-----------------|
+| **Claude Code** | `bash middleware/setup.sh --claude` | MCP server config → proxy |
+| **Cline** | `bash middleware/setup.sh --cline` | VS Code `cline.mcpServers` |
+| **Cursor** | `bash middleware/setup.sh --cursor` | `.cursor/mcp.json` → proxy |
+| **Any MCP client** | Manual config | Replace upstream address with proxy |
+
+All config templates: `middleware/config-templates/`
+
+---
+
+## 📋 Features
+
+### 🚦 Real-time protection
+- Intercepts `write_file`, `edit_file`, `create_file`, `patch_file`, `append_file` — anything an AI agent writes
+- Three policy modes: **normal** (block critical, warn high), **strict** (block all critical+high), **relaxed** (log only)
+- Audits read operations too — if AI reads a file with secrets, it's logged
+
+### 🔍 65+ detection rules
+
+| Category | Rules | What it finds |
+|----------|-------|--------------|
+| 🔑 **Secrets** | 12 | OpenAI, GitHub, AWS, Stripe, Slack, GitLab tokens; SSH keys; DB strings; hardcoded passwords |
+| 🐞 **OWASP** | 13 | SQL injection, XSS, command injection, path traversal, XXE, NoSQL injection, LDAP injection, open redirect |
+| 📦 **Dependencies** | 35+ | Known CVEs in Django, Flask, Requests, Pillow, PyYAML, lodash, axios, express + npm audit |
+| ⚙️ **Config risks** | 5+ | Docker root user, privileged containers, host networking, empty env vars |
+
+### 📊 Audit logging
+- JSONL format
+- Auto-rotates (7-day retention)
+- `--status` CLI to check today's stats
+- Per-agent tagging (SG_AGENT_NAME)
+
+### 💰 Built-in monetization
+- **Free**: Core interception + audit logging
+- **Pro** ($29/mo): SARIF/HTML reports, auto-fix, custom rules
+- **Team** ($99/mo): Multi-project management, compliance trends, Slack/Feishu alerts
+
+---
+
+## 🧪 Also included: CLI scanner
+
+Security Guardian also ships a standalone CLI scanner for post-hoc analysis:
+
+```bash
+# Scan an entire project
+python scripts/scan.py --path . --output html
+
+# Auto-fix common issues
 python scripts/fix.py --path . --apply
 ```
 
-支持自动修复：密钥替换为环境变量、Docker 安全加固、SQL 注入参数化建议等。
+The MCP Middleware and CLI scanner **share the same rule engine** — improve one, improve both.
 
-## 特性
+---
 
-- ✅ **零外部依赖** — 纯 Python 标准库，pip install 都不需要
-- ✅ **即插即用** — 10 秒完成扫描
-- ✅ **Hermes 原生集成** — 适配 Skill 体系，天然触发
-- ✅ **自动修复** — 常见问题一键修补
-- ✅ **CI/CD 就绪** — JSON 输出，轻松集成 GitHub Actions
-- ✅ **本地运行** — 代码不上传，隐私安全
+## 🗺 Roadmap
 
-## 项目结构
+- [x] **v0.1** — Core scan + fix engine (50+ rules)
+- [x] **v0.2** — HTML reports, CI/CD output formats
+- [x] **v0.3** — Feishu integration, npm scanning, 6 new OWASP rules
+- [x] **v0.4** — Claude Code / Cline adapter, one-click install
+- [x] **v0.5** — MCP Middleware (real-time interception), license system
+- [x] **v0.6** — One-click agent setup, config templates
+- [ ] **v0.7** — `pip install security-guardian` package
+- [ ] **v1.0** — Pro license activation, compliance PDF reports
 
-```
-security-guardian/
-├── SKILL.md           # Hermes Skill 定义
-├── README.md          # 本文件
-├── scripts/
-│   ├── scan.py        # 扫描引擎
-│   └── fix.py         # 修复引擎
-├── references/
-│   ├── rules.md       # 规则文档
-│   └── owasp-top10.md # OWASP 覆盖
-└── examples/
-    └── sample-report.md
-```
+---
 
-## 路线图
+## 🔒 Privacy
 
-- [x] v0.1.0 — 核心扫描 + 修复引擎 (50+ 规则)
-- [ ] v0.2.0 — CI/CD 集成 (GitHub Actions)
-- [ ] v0.3.0 — 自定义规则支持
-- [ ] v1.0.0 — Pro 版 (团队仪表板 + API)
+- **100% local**. All scanning happens on your machine. No data leaves.
+- **No telemetry**. No API calls. No phoning home.
+- License key check is the only network call (optional, for Pro features).
 
-## 许可
+---
 
-MIT License — 一人AI公司
+<div align="center">
+
+### Built for the age of AI coding
+
+**Security Guardian** · [GitHub](https://github.com/yangyz1988/security-guardian) · [Docs](middleware/AGENT_INTEGRATION.md)
+
+*One-person AI company product — MIT License*
+
+</div>
